@@ -24,7 +24,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class WebVulnScanner:
     def __init__(self, har_file: str, proxy: str = None):
         self.proxy = proxy  # 通过参数传入代理地址
-        self.har_file = har_file
+        self.har_file = har_file.replace(".har","")
         self.setup_output_dir()
         self.setup_logging()
         self.har_data = self.load_har_file(har_file)
