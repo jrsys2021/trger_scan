@@ -156,7 +156,7 @@ class WebVulnScanner:
         
         # 从 HAR 文件中提取请求头
         self.logger.info("Extracting headers from HAR file...")
-        har_headers = {}
+        self.headers = {}
         try:
             for entry in self.har_data['log']['entries']:
                 # 使用字典推导式过滤伪头部
@@ -166,21 +166,21 @@ class WebVulnScanner:
                     if not h['name'].startswith(':')  # 排除伪头部
                 }
                 # 将第一个请求的头信息用作全局默认头
-                har_headers.update(request_headers)
+                self.headers.update(request_headers)
                 break  # 只提取第一个请求的头信息
         except KeyError as e:
             self.logger.error(f"Error extracting headers from HAR file: {str(e)}")
         
-        if not har_headers:
+        if not self.headers:
             self.logger.warning("No headers found in HAR file. Using default headers.")
-            har_headers = {
+            self.headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': '*/*',
                 'Connection': 'close'
             }
         
         # 设置会话的头信息
-        self.session.headers.update(har_headers)
+        self.session.headers.update(self.headers)
         
         # 动态配置代理
         if self.proxy:
@@ -710,7 +710,7 @@ class WebVulnScanner:
             '--time-sec=10',                     # 延时秒数
             '--timeout=30',                      # 超时时间
             '--dbms=MySQL',                      # 指定数据库类型
-            '--proxy=http://127.0.0.1:10809',    # 代理设置
+            '--proxy={self.proxy}',    # 代理设置
         ]
         
         # 如果是POST请求，添加相关参数
@@ -759,7 +759,7 @@ class WebVulnScanner:
             '--level=5',                        # 测试等级
             '--delay=1',                        # 请求延迟
             '--timeout=30',                     # 超时设置
-            '--proxy=http://127.0.0.1:8080'    # 代理设置
+            '--proxy={self.proxy}'    # 代理设置
         ]
         
         # 如果是POST请求，添加相关参数
