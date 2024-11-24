@@ -159,7 +159,12 @@ class WebVulnScanner:
         har_headers = {}
         try:
             for entry in self.har_data['log']['entries']:
-                request_headers = {h['name']: h['value'] for h in entry['request']['headers']}
+                # 使用字典推导式过滤伪头部
+                request_headers = {
+                    h['name']: h['value']
+                    for h in entry['request']['headers']
+                    if not h['name'].startswith(':')  # 排除伪头部
+                }
                 # 将第一个请求的头信息用作全局默认头
                 har_headers.update(request_headers)
                 break  # 只提取第一个请求的头信息
@@ -235,7 +240,7 @@ class WebVulnScanner:
             req_info = {
                 'url': request['url'],
                 'method': request['method'],
-                'headers': {h['name']: h['value'] for h in request['headers']},
+                'headers': {h['name']: h['value'] for h in request['headers'] if not h['name'].startswith(':')},
                 'params': {}
             }
 
