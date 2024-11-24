@@ -1,3 +1,4 @@
+import argparse
 import json
 import requests
 import time
@@ -21,7 +22,8 @@ colorama.init()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class WebVulnScanner:
-    def __init__(self, har_file: str):
+    def __init__(self, har_file: str, proxy: str = None):
+        self.proxy = proxy  # 通过参数传入代理地址
         self.setup_output_dir()
         self.setup_logging()
         self.har_data = self.load_har_file(har_file)
@@ -151,28 +153,42 @@ class WebVulnScanner:
         """配置请求会话"""
         self.session = requests.Session()
         
-        # 设置代理
-        self.proxies = {
-            'http': 'http://127.0.0.1:8080'
-        }
-        self.session.proxies = self.proxies
+        # 从 HAR 文件中提取请求头
+        self.logger.info("Extracting headers from HAR file...")
+        har_headers = {}
+        try:
+            for entry in self.har_data['log']['entries']:
+                request_headers = {h['name']: h['value'] for h in entry['request']['headers']}
+                # 将第一个请求的头信息用作全局默认头
+                har_headers.update(request_headers)
+                break  # 只提取第一个请求的头信息
+        except KeyError as e:
+            self.logger.error(f"Error extracting headers from HAR file: {str(e)}")
         
-        # 禁用SSL验证
+        if not har_headers:
+            self.logger.warning("No headers found in HAR file. Using default headers.")
+            har_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': '*/*',
+                'Connection': 'close'
+            }
+        
+        # 设置会话的头信息
+        self.session.headers.update(har_headers)
+        
+        # 动态配置代理
+        if self.proxy:
+            self.logger.info(f"Using proxy: {self.proxy}")
+            self.proxies = {'http': self.proxy}
+            self.session.proxies = self.proxies
+        else:
+            self.logger.warning("No proxy specified. Requests will be made directly.")
+            self.proxies = None
+
+        # 禁用 SSL 验证
         self.session.verify = False
-        
-        # 请求头设置
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Connection': 'close',
-            'Authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczpcL1wvc2l0ZS1zdGFnLWFwaS5rbG9ub3N0ZWsuY29tXC9hcGlcL2xvZ2luIiwiaWF0IjoxNzMyMTcyNzc0LCJleHAiOjE3MzIyNTkxNzQsIm5iZiI6MTczMjE3Mjc3NCwianRpIjoiNW9RRUttck42N2U2djVueSIsInN1YiI6OTQwLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.tg3SkKKCqCeaJF5xqX128N35byDM5SV5l5eNZV6QthM',
-            'Referer': 'https://tsgamectrl.royalgaming777.com/Ctrl/MaintainWeb?loc=/WMYL',
-            'Origin': 'https://bo-stag.klonostek.com',
-            'Cookie': 'Lang=zh-CN; .AspNetCore.Antiforgery.9TtSrW0hzOs=CfDJ8DrKn3juKaBEp7ddJ0zsXtdUyGGuFf5B-ABjSxabiQdKwdpeF9xa46wsyDzIEaNXg_ZUdOHRGiNgiGcHID3kDKQYGhdBWgTi2TbRQU1nJjXK4sJGKDU9YpKb_GexjUotbeBuOoKl2DYOPTdnJnDSu24; .RoyalGameSGTCtrl.Session=CfDJ8DrKn3juKaBEp7ddJ0zsXtdgJejiWFt7Eh7lXdKtRE0mdsWZI%2BxuU3wNP%2FGLHvF35PY6D3hU9E%2FuP%2FE5Ktgs0SABt2Dl9wTuHOSHuP7mD4VAzR1laj0aHyt5cDr%2FGo9L0uDW3hAM0j55td%2F8TY42inPb890RKacGPFYLrmmAwRgU'
-        }
-        
-        self.logger.info("Session configured with proxy and headers")
+
+        self.logger.info("Session configured with headers from HAR file and proxy.")
 
     def make_request(self, url: str, method: str, params: Dict = None, 
                     data: Dict = None, headers: Dict = None, timeout: int = 10) -> requests.Response:
@@ -688,7 +704,7 @@ class WebVulnScanner:
             '--time-sec=10',                     # 延时秒数
             '--timeout=30',                      # 超时时间
             '--dbms=MySQL',                      # 指定数据库类型
-            '--proxy=http://127.0.0.1:8080',    # 代理设置
+            '--proxy=http://127.0.0.1:10809',    # 代理设置
         ]
         
         # 如果是POST请求，添加相关参数
@@ -939,17 +955,19 @@ def main():
     print(f"{Fore.CYAN}Web Vulnerability Scanner{Style.RESET_ALL}")
     print("="*50)
     
-    if len(sys.argv) != 2:
-        print(f"{Fore.RED}Usage: python scanner.py <har_file>{Style.RESET_ALL}")
-        sys.exit(1)
-        
-    har_file = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Web Vulnerability Scanner")
+    parser.add_argument("har_file", help="Path to the HAR file for scanning.")
+    parser.add_argument("--proxy", help="Proxy address to use for scanning (e.g., http://127.0.0.1:8080).", default=None)
+    args = parser.parse_args()
+    
+    har_file = args.har_file
+    proxy = args.proxy
     if not os.path.exists(har_file):
         print(f"{Fore.RED}Error: HAR file '{har_file}' not found{Style.RESET_ALL}")
         sys.exit(1)
     
     try:
-        scanner = WebVulnScanner(har_file)
+        scanner = WebVulnScanner(har_file, proxy)
         scanner.run_scan()
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Scan interrupted by user{Style.RESET_ALL}")
