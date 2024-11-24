@@ -24,6 +24,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class WebVulnScanner:
     def __init__(self, har_file: str, proxy: str = None):
         self.proxy = proxy  # 通过参数传入代理地址
+        self.har_file = har_file
         self.setup_output_dir()
         self.setup_logging()
         self.har_data = self.load_har_file(har_file)
@@ -117,7 +118,7 @@ class WebVulnScanner:
     def setup_output_dir(self):
         """设置输出目录"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.output_dir = f'vuln_scan_{timestamp}'
+        self.output_dir = f'vuln_scan_{self.har_file}_{timestamp}'
         os.makedirs(self.output_dir, exist_ok=True)
 
     def setup_logging(self):
