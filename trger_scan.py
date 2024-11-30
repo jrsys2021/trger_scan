@@ -143,11 +143,11 @@ class WebVulnScanner:
     def load_har_file(self, har_file: str) -> Dict[str, Any]:
         """加载HAR文件"""
         try:
-            self.logger.info(f"Loading HAR file: {har_file}")
+            self.logger.info(f"加载 HAR 文件: {har_file}")
             with open(har_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            self.logger.error(f"Error loading HAR file: {str(e)}")
+            self.logger.error(f"HAR 文件加载错误: {str(e)}")
             sys.exit(1)
 
     def setup_session(self):
@@ -155,7 +155,7 @@ class WebVulnScanner:
         self.session = requests.Session()
         
         # 从 HAR 文件中提取请求头
-        self.logger.info("Extracting headers from HAR file...")
+        self.logger.info("从HAR文件提取请求头...")
         self.headers = {}
         try:
             for entry in self.har_data['log']['entries']:
@@ -169,10 +169,10 @@ class WebVulnScanner:
                 self.headers.update(request_headers)
                 break  # 只提取第一个请求的头信息
         except KeyError as e:
-            self.logger.error(f"Error extracting headers from HAR file: {str(e)}")
+            self.logger.error(f"从HAR文件提取请求头失败: {str(e)}")
         
         if not self.headers:
-            self.logger.warning("No headers found in HAR file. Using default headers.")
+            self.logger.warning("在HAR文件中没有找到请求头，使用默认请求头.")
             self.headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': '*/*',
@@ -184,27 +184,27 @@ class WebVulnScanner:
         
         # 动态配置代理
         if self.proxy:
-            self.logger.info(f"Using proxy: {self.proxy}")
+            self.logger.info(f"使用代理: {self.proxy}")
             self.proxies = {'http': self.proxy}
             self.session.proxies = self.proxies
         else:
-            self.logger.warning("No proxy specified. Requests will be made directly.")
+            self.logger.warning("未指定代理，直接发送请求.")
             self.proxies = None
 
         # 禁用 SSL 验证
         self.session.verify = False
 
-        self.logger.info("Session configured with headers from HAR file and proxy.")
+        #self.logger.info("Session configured with headers from HAR file and proxy.")
 
     def make_request(self, url: str, method: str, params: Dict = None, 
                     data: Dict = None, headers: Dict = None, timeout: int = 10) -> requests.Response:
         """发送HTTP请求"""
         try:
-            self.logger.debug(f"\nMaking request:")
-            self.logger.debug(f"URL: {url}")
-            self.logger.debug(f"Method: {method}")
-            self.logger.debug(f"Parameters: {params}")
-            self.logger.debug(f"Data: {data}")
+            self.logger.debug(f"\n生成请求:")
+            self.logger.debug(f"地址: {url}")
+            self.logger.debug(f"请求方式: {method}")
+            self.logger.debug(f"参数: {params}")
+            self.logger.debug(f"发送数据: {data}")
             
             response = self.session.request(
                 method=method,
@@ -218,16 +218,16 @@ class WebVulnScanner:
                 allow_redirects=False
             )
             
-            self.logger.debug(f"Response status: {response.status_code}")
-            self.logger.debug(f"Response length: {len(response.text)}")
+            self.logger.debug(f"Response状态码: {response.status_code}")
+            self.logger.debug(f"Response长度: {len(response.text)}")
             
             return response
             
         except requests.exceptions.ProxyError as e:
-            self.logger.error(f"Proxy error: {str(e)}")
+            self.logger.error(f"代理错误: {str(e)}")
             return None
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Request error: {str(e)}")
+            self.logger.error(f"请求错误: {str(e)}")
             return None
 
     def extract_requests(self) -> List[Dict[str, Any]]:
@@ -262,7 +262,7 @@ class WebVulnScanner:
                     try:
                         req_info['post_data'] = json.loads(post_data['text'])
                     except:
-                        self.logger.error(f"Failed to parse JSON data for {request['url']}")
+                        self.logger.error(f"从 {request['url']}解析json数据失败")
                         
             requests_info.append(req_info)
             
@@ -275,17 +275,17 @@ class WebVulnScanner:
         method = request_info['method']
         headers = request_info['headers']
 
-        self.logger.info(f"\nTesting vulnerabilities for: {url}")
+        self.logger.info(f"\n正在进行: {url}漏洞测试...")
 
         # 测试GET参数
         if request_info['params']:
-            self.logger.info("Testing GET parameters...")
+            self.logger.info("测试 GET 参数...")
             for param, value in request_info['params'].items():
                 vulnerabilities.extend(self.test_parameter(url, method, param, value, headers))
 
         # 测试POST参数
         if method == 'POST' and 'post_data' in request_info:
-            self.logger.info("Testing POST parameters...")
+            self.logger.info("测试 POST 参数...")
             for param, value in request_info['post_data'].items():
                 vulnerabilities.extend(self.test_parameter(url, method, param, value, headers, True))
 
@@ -320,7 +320,7 @@ class WebVulnScanner:
         results = []
         
         for injection_type, payloads in self.sql_payloads.items():
-            for payload in tqdm(payloads, desc=f"Testing {injection_type} SQL injection"):
+            for payload in tqdm(payloads, desc=f"测试 {injection_type} SQL注入"):
                 test_value = f"{value}{payload}"
                 
                 try:
@@ -333,7 +333,7 @@ class WebVulnScanner:
 
                     if response and self.check_sql_vulnerability(response, injection_type):
                         results.append({
-                            'type': 'SQL Injection',
+                            'type': 'SQL注入',
                             'subtype': injection_type,
                             'url': url,
                             'method': method,
@@ -341,10 +341,10 @@ class WebVulnScanner:
                             'payload': payload,
                             'evidence': self.get_vulnerability_evidence(response)
                         })
-                        self.logger.warning(f"{Fore.RED}Found SQL injection vulnerability!{Style.RESET_ALL}")
+                        self.logger.warning(f"{Fore.RED}找到 SQL 注入漏洞!{Style.RESET_ALL}")
                         
                 except Exception as e:
-                    self.logger.error(f"Error testing SQL injection: {str(e)}")
+                    self.logger.error(f"测试SQL注入错误: {str(e)}")
                     
                 time.sleep(0.5)  # 请求延迟
                 
@@ -355,7 +355,7 @@ class WebVulnScanner:
         """测试XSS漏洞"""
         results = []
         
-        for payload in tqdm(self.xss_payloads, desc="Testing XSS"):
+        for payload in tqdm(self.xss_payloads, desc="测试 XSS"):
             test_value = f"{value}{payload}"
             
             try:
@@ -378,7 +378,7 @@ class WebVulnScanner:
                     self.logger.warning(f"{Fore.RED}Found XSS vulnerability!{Style.RESET_ALL}")
                     
             except Exception as e:
-                self.logger.error(f"Error testing XSS: {str(e)}")
+                self.logger.error(f"测试XSS错误: {str(e)}")
                 
             time.sleep(0.5)
             
@@ -389,7 +389,7 @@ class WebVulnScanner:
         """测试命令注入漏洞"""
         results = []
         
-        for payload in tqdm(self.command_payloads, desc="Testing Command Injection"):
+        for payload in tqdm(self.command_payloads, desc="测试命令行注入"):
             test_value = f"{value}{payload}"
             
             try:
@@ -402,17 +402,17 @@ class WebVulnScanner:
 
                 if response and self.check_command_vulnerability(response):
                     results.append({
-                        'type': 'Command Injection',
+                        'type': '命令行注入',
                         'url': url,
                         'method': method,
                         'parameter': param,
                         'payload': payload,
                         'evidence': self.get_vulnerability_evidence(response)
                     })
-                    self.logger.warning(f"{Fore.RED}Found Command Injection vulnerability!{Style.RESET_ALL}")
+                    self.logger.warning(f"{Fore.RED}找到命令行注入漏洞!{Style.RESET_ALL}")
                     
             except Exception as e:
-                self.logger.error(f"Error testing command injection: {str(e)}")
+                self.logger.error(f"测试命令行注入错误: {str(e)}")
                 
             time.sleep(0.5)
             
@@ -423,7 +423,7 @@ class WebVulnScanner:
         """测试路径遍历漏洞"""
         results = []
         
-        for payload in tqdm(self.path_traversal_payloads, desc="Testing Path Traversal"):
+        for payload in tqdm(self.path_traversal_payloads, desc="测试路径遍历漏洞"):
             test_value = f"{value}{payload}"
             
             try:
@@ -436,17 +436,17 @@ class WebVulnScanner:
 
                 if response and self.check_path_traversal_vulnerability(response):
                     results.append({
-                        'type': 'Path Traversal',
+                        'type': '路径遍历漏洞',
                         'url': url,
                         'method': method,
                         'parameter': param,
                         'payload': payload,
                         'evidence': self.get_vulnerability_evidence(response)
                     })
-                    self.logger.warning(f"{Fore.RED}Found Path Traversal vulnerability!{Style.RESET_ALL}")
+                    self.logger.warning(f"{Fore.RED}找到路径遍历漏洞!{Style.RESET_ALL}")
                     
             except Exception as e:
-                self.logger.error(f"Error testing path traversal: {str(e)}")
+                self.logger.error(f"测试路径遍历漏洞错误: {str(e)}")
                 
             time.sleep(0.5)
             
@@ -480,12 +480,12 @@ class WebVulnScanner:
         if injection_type == 'error_based':
             for error in sql_errors:
                 if error.lower() in response_text:
-                    self.logger.info(f"Found SQL error: {error}")
+                    self.logger.info(f"找到 SQL 错误: {error}")
                     return True
                     
         elif injection_type == 'time_based':
             response_time = response.elapsed.total_seconds()
-            self.logger.debug(f"Response time: {response_time}s")
+            self.logger.debug(f"Response 时间: {response_time}s")
             return response_time > 5
             
         elif injection_type == 'boolean_based':
@@ -710,7 +710,7 @@ class WebVulnScanner:
             '--time-sec=10',                     # 延时秒数
             '--timeout=30',                      # 超时时间
             '--dbms=MySQL',                      # 指定数据库类型
-            '--proxy={self.proxy}',    # 代理设置
+            f'--proxy={self.proxy}',    # 代理设置
         ]
         
         # 如果是POST请求，添加相关参数
@@ -759,7 +759,7 @@ class WebVulnScanner:
             '--level=5',                        # 测试等级
             '--delay=1',                        # 请求延迟
             '--timeout=30',                     # 超时设置
-            '--proxy={self.proxy}'    # 代理设置
+            f'--proxy={self.proxy}'    # 代理设置
         ]
         
         # 如果是POST请求，添加相关参数
@@ -825,16 +825,16 @@ class WebVulnScanner:
 
     def run_scan(self):
         """运行扫描"""
-        self.logger.info(f"{Fore.GREEN}Starting vulnerability scan...{Style.RESET_ALL}")
+        self.logger.info(f"{Fore.GREEN}开始扫描漏洞...{Style.RESET_ALL}")
         
         # 测试代理连接
         if not self.test_proxy_connection():
-            self.logger.error(f"{Fore.RED}Failed to connect to proxy. Please check Burp Suite setup.{Style.RESET_ALL}")
+            self.logger.error(f"{Fore.RED}连接代理失败. 请检查Burp Suite设置.{Style.RESET_ALL}")
             return
         
         # 提取请求信息
         requests_info = self.extract_requests()
-        self.logger.info(f"Extracted {len(requests_info)} requests from HAR file")
+        self.logger.info(f"从HAR文件提取 {len(requests_info)} 请求")
         
         # 显示扫描进度
         total_requests = len(requests_info)
@@ -859,25 +859,25 @@ class WebVulnScanner:
                 if vulnerabilities:
                     all_vulnerabilities.extend(vulnerabilities)
                     self.logger.warning(
-                        f"{Fore.YELLOW}Found {len(vulnerabilities)} vulnerabilities in request #{i}{Style.RESET_ALL}"
+                        f"{Fore.YELLOW}从请求 #{i}{Style.RESET_ALL}中找到 {len(vulnerabilities)} 漏洞 "
                     )
                 successful_scans += 1
                     
             except Exception as e:
-                self.logger.error(f"Error scanning {req_info['url']}: {str(e)}")
+                self.logger.error(f"扫描错误 {req_info['url']}: {str(e)}")
                 failed_scans += 1
                 continue
                 
         # 生成最终报告
         if all_vulnerabilities:
             self.logger.warning(
-                f"\n{Fore.RED}Found {len(all_vulnerabilities)} total vulnerabilities!{Style.RESET_ALL}"
+                f"\n{Fore.RED}共找到 {len(all_vulnerabilities)} 个漏洞!{Style.RESET_ALL}"
             )
             self.generate_report(all_vulnerabilities)
             # 将此行删除，因为我们已经在发现漏洞时保存了命令
             # self.save_tool_commands(all_vulnerabilities)  
         else:
-            self.logger.info(f"\n{Fore.GREEN}No vulnerabilities found.{Style.RESET_ALL}")
+            self.logger.info(f"\n{Fore.GREEN}未发现漏洞.{Style.RESET_ALL}")
         
         # 打印最终统计
         self.print_final_statistics(total_requests, successful_scans, failed_scans, all_vulnerabilities)
@@ -896,41 +896,41 @@ class WebVulnScanner:
             )
             
             if response.status_code == 200:
-                self.logger.info(f"{Fore.GREEN}✓ Proxy connection successful{Style.RESET_ALL}")
-                self.logger.debug(f"Proxy response: {response.text}")
+                self.logger.info(f"{Fore.GREEN}✓ 代理链接成功{Style.RESET_ALL}")
+                self.logger.debug(f"代理 response: {response.text}")
                 return True
                 
             self.logger.error(
-                f"{Fore.RED}✗ Proxy test failed - Status code: {response.status_code}{Style.RESET_ALL}"
+                f"{Fore.RED}✗ 代理测试失败 - 状态码: {response.status_code}{Style.RESET_ALL}"
             )
             return False
             
         except requests.exceptions.ProxyError as e:
             self.logger.error(
-                f"{Fore.RED}✗ Proxy connection error: {str(e)}\n"
-                f"Please check if Burp Suite is running and listening on port 8080{Style.RESET_ALL}"
+                f"{Fore.RED}✗ 代理连接错误: {str(e)}\n"
+                f"请检查 Burp Suite 是否监听 8080端口{Style.RESET_ALL}"
             )
             return False
         except Exception as e:
-            self.logger.error(f"{Fore.RED}✗ Proxy test error: {str(e)}{Style.RESET_ALL}")
+            self.logger.error(f"{Fore.RED}✗ 代理测试错误: {str(e)}{Style.RESET_ALL}")
             return False
 
     def print_final_statistics(self, total_requests: int, successful_scans: int, 
                              failed_scans: int, vulnerabilities: List[Dict[str, Any]]):
         """打印最终统计信息"""
         print("\n" + "="*50)
-        print(f"{Fore.CYAN}Scan Completed - Final Statistics{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}扫描完成 - 最终统计{Style.RESET_ALL}")
         print("="*50)
         
         # 请求统计
-        print(f"\n{Fore.BLUE}Request Statistics:{Style.RESET_ALL}")
-        print(f"Total Requests: {total_requests}")
-        print(f"Successful Scans: {successful_scans}")
-        print(f"Failed Scans: {failed_scans}")
-        print(f"Success Rate: {(successful_scans/total_requests*100):.1f}%")
+        print(f"\n{Fore.BLUE}请求数据:{Style.RESET_ALL}")
+        print(f"请求数量: {total_requests}")
+        print(f"扫描成功: {successful_scans}")
+        print(f"扫描失败: {failed_scans}")
+        print(f"成功率: {(successful_scans/total_requests*100):.1f}%")
         
         # 漏洞统计
-        print(f"\n{Fore.BLUE}Vulnerability Statistics:{Style.RESET_ALL}")
+        print(f"\n{Fore.BLUE}漏洞统计:{Style.RESET_ALL}")
         vuln_types = {}
         for vuln in vulnerabilities:
             vuln_type = vuln['type']
@@ -946,10 +946,10 @@ class WebVulnScanner:
             print(f"{color}{vuln_type}: {count} ({severity.upper()}){Style.RESET_ALL}")
             
         # 输出路径
-        print(f"\n{Fore.BLUE}Output Location:{Style.RESET_ALL}")
-        print(f"Report Directory: {self.output_dir}")
-        print(f"Full Report: {os.path.join(self.output_dir, 'vulnerability_report.html')}")
-        print(f"Log File: {os.path.join(self.output_dir, 'scan.log')}")
+        print(f"\n{Fore.BLUE}输出位置:{Style.RESET_ALL}")
+        print(f"报告目录: {self.output_dir}")
+        print(f"完整报告: {os.path.join(self.output_dir, 'vulnerability_report.html')}")
+        print(f"日志文件: {os.path.join(self.output_dir, 'scan.log')}")
         
         print("\n" + "="*50)
 
@@ -958,28 +958,28 @@ def main():
     # 初始化colorama
     colorama.init()
     
-    print(f"{Fore.CYAN}Web Vulnerability Scanner{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Web漏洞扫描{Style.RESET_ALL}")
     print("="*50)
     
-    parser = argparse.ArgumentParser(description="Web Vulnerability Scanner")
-    parser.add_argument("har_file", help="Path to the HAR file for scanning.")
-    parser.add_argument("--proxy", help="Proxy address to use for scanning (e.g., http://127.0.0.1:8080).", default=None)
+    parser = argparse.ArgumentParser(description="Web漏洞扫描")
+    parser.add_argument("har_file", help="扫描HAR文件路径.")
+    parser.add_argument("--proxy", help="扫描使用代理地址 (e.g., http://127.0.0.1:8080).", default=None)
     args = parser.parse_args()
     
     har_file = args.har_file
     proxy = args.proxy
     if not os.path.exists(har_file):
-        print(f"{Fore.RED}Error: HAR file '{har_file}' not found{Style.RESET_ALL}")
+        print(f"{Fore.RED}错误: HAR 文件 '{har_file}' 不存在{Style.RESET_ALL}")
         sys.exit(1)
     
     try:
         scanner = WebVulnScanner(har_file, proxy)
         scanner.run_scan()
     except KeyboardInterrupt:
-        print(f"\n{Fore.YELLOW}Scan interrupted by user{Style.RESET_ALL}")
+        print(f"\n{Fore.YELLOW}用户中断扫描{Style.RESET_ALL}")
         sys.exit(0)
     except Exception as e:
-        print(f"{Fore.RED}Error during scan: {str(e)}{Style.RESET_ALL}")
+        print(f"{Fore.RED}扫描时出现错误: {str(e)}{Style.RESET_ALL}")
         sys.exit(1)
     finally:
         colorama.deinit()
